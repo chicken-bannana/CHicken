@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Classic Arcade Gambling</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0e0e0e;
+      color: #f5f5f5;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    button, input, select {
+      background: #222;
+      color: white;
+      border: 1px solid #555;
+      font-size: 16px;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #333;
+    }
+    #menuBar button {
+      font-weight: bold;
+    }
+    #slot, #card-area {
+      font-size: 36px;
+      margin: 20px 0;
+    }
+    .section {
+      display: none;
+      margin-top: 20px;
+    }
+    #loan-warning {
+      color: orange;
+    }
+    #result {
+      margin: 10px;
+      font-weight: bold;
+    }
+    table {
+      width: 90%;
+      margin: auto;
+      background: #222;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎰 Classic Arcade Gambling</h1>
+
+  <div id="menuBar">
+    <button onclick="showSection('home')">Home</button>
+    <button onclick="showSection('loanCenter')">Loan Center</button>
+    <button onclick="showSection('housingMarket')">Housing Market</button>
+  </div>
+
+  <div id="home" class="section" style="display:block;">
+    <div>
+      <label for="betAmount">Bet Amount: $</label>
+      <input type="number" id="betAmount" value="10" min="1" />
+    </div>
+    <div>
+      <button onclick="spin()">Spin Slot</button>
+      <button onclick="drawCard()">High Card</button>
+      <button onclick="playScratchTicket()">🧾 Scratch Ticket ($20)</button>
+    </div>
+    <div id="slot">🍒 🍋 🍊</div>
+    <div id="card-area">You: 🂠 | Dealer: 🂠</div>
+  </div>
+
+  <div id="loanCenter" class="section">
+    <div>
+      <label for="loanAmount">Loan Amount:</label>
+      <select id="loanAmount">
+        <option value="100">$100</option>
+        <option value="200">$200</option>
+        <option value="500">$500</option>
+      </select>
+      <button onclick="takeLoan()">💸 Take Loan</button>
+    </div>
+    <div id="loan-warning"></div>
+    <div id="loan-buttons"></div>
+    <h3>📋 Loan History</h3>
+    <table>
+      <thead><tr><th>Amount</th><th>Due</th><th>Time Left</th><th>Status</th></tr></thead>
+      <tbody id="loan-history"></tbody>
+    </table>
+  </div>
+
+  <div id="housingMarket" class="section">
+    <h2>🏠 Housing Market</h2>
+    <div id="housesForSale"></div>
+    <div>
+      <h3>Owned Properties</h3>
+      <ul id="ownedHousesList"></ul>
+    </div>
+  </div>
+
+  <div id="result"></div>
+  <div id="balance">Balance: $100</div>
+  <div id="reputation">🏦 Reputation: 100</div>
+
+  <script>
+    let balance = 100;
+    let reputation = 100;
+    let activeLoans = [];
+    const loanHistory = [];
+    const ownedHouses = [];
+
+    const symbols = ['🍒', '🍋', '🍊', '🍉', '🍇', '💎'];
+    const cardValues = Array.from({length: 13}, (_, i) => i + 2);
+    const cardFaces = {11: 'J', 12: 'Q', 13: 'K', 14: 'A'};
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
+      if (id === 'housingMarket') renderHousingMarket();
+    }
+
+    function rand(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function getBet() {
+      const bet = parseInt(document.getElementById("betAmount").value);
+      return isNaN(bet) || bet <= 0 ? 0 : bet;
+    }
+
+    function spin() {
+      const bet = getBet();
+      if (bet > balance) return showMessage("💸 Not enough balance!");
+      if (bet <= 0) return showMessage("Enter a valid bet!");
+      balance -= bet;
+
+      const [s1, s2, s3] = [rand(symbols), rand(symbols), rand(symbols)];
+      document.getElementById("slot").textContent = `${s1} ${s2} ${s3}`;
+      document.getElementById("card-area").textContent = "You: 🂠 | Dealer: 🂠";
+
+      const jackpotChance = Math.random();
+      if (jackpotChance < 0.01) {
+        balance += bet * 1000;
+        showMessage(`💰 JACKPOT!!! You won $${(bet * 1000).toLocaleString()}`);
+      } else if (s1 === s2 && s2 === s3) {
+        balance += bet * 5;
+        showMessage(`🎉 Triple Match! You won $${bet * 5}`);
+      } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+        balance += bet * 2;
+        showMessage(`👍 Matched 2! Won $${bet * 2}`);
+      } else {
+        showMessage("❌ You lost the spin.");
+      }
+
+      updateStats();
+    }
+
+    function drawCard() {
+      const bet = getBet();
+      if (bet > balance) return showMessage("💸 Not enough balance!");
+      if (bet <= 0) return showMessage("Enter a valid bet!");
+      balance -= bet;
+
+      const player = rand(cardValues);
+      const dealer = rand(cardValues);
+      const playerFace = cardFaces[player] || player;
+      const dealerFace = cardFaces[dealer] || dealer;
+
+      document.getElementById("slot").textContent = "🍒 🍋 🍊";
+      document.getElementById("card-area").textContent = `You: ${playerFace} | Dealer: ${dealerFace}`;
+
+      if (player > dealer) {
+        balance += bet * 2;
+        showMessage(`🎉 You win! (+$${bet * 2})`);
+      } else if (player === dealer) {
+        balance += bet;
+        showMessage("🤝 Tie. You get your money back.");
+      } else {
+        showMessage("❌ Dealer wins. You lost your bet.");
+      }
+
+      updateStats();
+    }
+
+    function playScratchTicket() {
+      const cost = 20;
+      if (balance < cost) {
+        return showMessage("💸 Not enough money for a scratch ticket!");
+      }
+
+      balance -= cost;
+      const roll = Math.random();
+      let winnings = 0;
+      let result = "😢 Sorry, you didn't win.";
+
+      if (roll < 1 / 20) {
+        winnings = 500;
+        result = "🎉 JACKPOT! You won $500!";
+      } else if (roll < 1 / 5) {
+        winnings = 50;
+        result = "🥳 You won $50!";
+      } else if (roll < 1 / 2) {
+        winnings = 5;
+        result = "😊 You won $5!";
+      }
+
+      balance += winnings;
+      showMessage(result);
+      updateStats();
+    }
+
+    function showMessage(msg) {
+      document.getElementById("result").textContent = msg;
+    }
+
+    function updateStats() {
+      document.getElementById("balance").textContent = `Balance: $${balance.toFixed(2)}`;
+      document.getElementById("reputation").textContent = `🏦 Reputation: ${reputation}`;
+    }
+
+    function getInterestRate() {
+      if (reputation >= 100) return 0.10;
+      if (reputation >= 70) return 0.15;
+      if (reputation >= 40) return 0.20;
+      return 0.25;
+    }
+
+    function takeLoan() {
+      if (activeLoans.length >= 2) return showMessage("❌ Max 2 active loans allowed!");
+      const base = parseInt(document.getElementById("loanAmount").value);
+      const loan = {
+        id: Date.now(),
+        base,
+        due: base,
+        timeLeft: 50,
+        interestRate: getInterestRate(),
+        repaid: false,
+        interval: null,
+        interestInt: null
+      };
+      balance += base;
+      activeLoans.push(loan);
+      startLoanTimers(loan);
+
+      updateLoanButtons();
+      updateStats();
+      showMessage(`💵 Took $${base} loan. Repay in 50s.`);
+    }
+
+    function startLoanTimers(loan) {
+      loan.interval = setInterval(() => {
+        loan.timeLeft--;
+        updateLoanButtons();
+        if (loan.timeLeft === 0) {
+          clearInterval(loan.interval);
+          clearInterval(loan.interestInt);
+          activeLoans = activeLoans.filter(l => l.id !== loan.id);
+          reputation -= activeLoans.length === 0 ? 30 : 50;
+          loanHistory.push({...loan, status: "Defaulted"});
+          updateLoanButtons();
+          updateStats();
+          if (reputation <= 0) {
+            document.body.innerHTML = '<h1 style="color:red;">🏚️ You\'re bankrupt. GAME OVER.</h1>';
+          }
+        }
+      }, 1000);
+      loan.interestInt = setInterval(() => {
+        loan.due *= 1 + loan.interestRate;
+        loan.due = parseFloat(loan.due.toFixed(2));
+        updateLoanButtons();
+      }, 10000);
+    }
+
+    function repayLoan(id) {
+      const loan = activeLoans.find(l => l.id === id);
+      if (!loan || loan.repaid) return;
+      if (balance < loan.due) return showMessage("💸 Not enough money to repay.");
+      balance -= loan.due;
+      clearInterval(loan.interval);
+      clearInterval(loan.interestInt);
+      activeLoans = activeLoans.filter(l => l.id !== id);
+      if (loan.timeLeft > 10) reputation += 10;
+      loanHistory.push({...loan, status: "Repaid"});
+      showMessage(`✅ Repaid loan of $${loan.due.toFixed(2)}`);
+      updateLoanButtons();
+      updateStats();
+    }
+
+    function updateLoanButtons() {
+      const area = document.getElementById("loan-buttons");
+      const table = document.getElementById("loan-history");
+      area.innerHTML = activeLoans.map(loan =>
+        `<div>Loan: $${loan.base} → $${loan.due.toFixed(2)} | ⏳ ${loan.timeLeft}s
+        <button onclick="repayLoan(${loan.id})">Repay</button></div>`
+      ).join('');
+      table.innerHTML = loanHistory.map(l =>
+        `<tr><td>$${l.base}</td><td>$${l.due.toFixed(2)}</td><td>${l.timeLeft}s</td><td>${l.status}</td></tr>`
+      ).join('');
+    }
+
+    const housesForSale = [
+      { name: "Tiny Apartment", price: 10000 },
+      { name: "Suburban Home", price: 50000 },
+      { name: "Luxury Condo", price: 250000 },
+      { name: "Mansion", price: 2000000 },
+      { name: "Private Island", price: 100000000 }
+    ];
+
+    function renderHousingMarket() {
+      const area = document.getElementById("housesForSale");
+      area.innerHTML = housesForSale.map(h =>
+        `<div><strong>${h.name}</strong> - $${h.price.toLocaleString()}
+        <button onclick="buyHouse(${h.price}, '${h.name}')">Buy</button></div>`
+      ).join('');
+      updateOwnedHouses();
+    }
+
+    function buyHouse(price, name) {
+      if (balance < price) return showMessage("💸 Not enough to buy this property!");
+      balance -= price;
+      ownedHouses.push({ name, price });
+      updateOwnedHouses();
+      updateStats();
+      showMessage(`✅ Purchased ${name} for $${price.toLocaleString()}`);
+    }
+
+    function updateOwnedHouses() {
+      const list = document.getElementById("ownedHousesList");
+      list.innerHTML = ownedHouses.map(h => `<li>${h.name} - $${h.price.toLocaleString()}</li>`).join('');
+    }
+
+    setInterval(() => {
+      const totalValue = ownedHouses.reduce((sum, h) => sum + h.price, 0);
+      if (totalValue > 0) {
+        const bonus = Math.floor(reputation / 10) * 0.001;
+        const rent = totalValue * (0.01 + bonus);
+        balance += rent;
+        updateStats();
+      }
+    }, 5000);
+  </script>
+
+</body>
+</html>
+
+
