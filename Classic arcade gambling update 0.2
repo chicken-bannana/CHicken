@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Classic Arcade Gambling</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0e0e0e;
+      color: #f5f5f5;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    button, input, select {
+      background: #222;
+      color: white;
+      border: 1px solid #555;
+      font-size: 16px;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #333;
+    }
+    #menuBar button {
+      font-weight: bold;
+    }
+    #slot, #card-area {
+      font-size: 36px;
+      margin: 20px 0;
+    }
+    .slot-anim {
+      animation: slot-spin 0.1s linear infinite;
+    }
+    @keyframes slot-spin {
+      0% { filter: brightness(1); transform: scale(1.1) rotate(-4deg);}
+      50% { filter: brightness(1.8); transform: scale(1.2) rotate(4deg);}
+      100% { filter: brightness(1); transform: scale(1.1) rotate(-4deg);}
+    }
+    .section {
+      display: none;
+      margin-top: 20px;
+    }
+    #loan-warning {
+      color: orange;
+    }
+    #result {
+      margin: 10px;
+      font-weight: bold;
+    }
+    table {
+      width: 90%;
+      margin: auto;
+      background: #222;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+    }
+    #scratch-modal, #lotto-modal {
+      display: none;
+      position: fixed;
+      z-index: 9999;
+      left: 0; top: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.85);
+      align-items: center;
+      justify-content: center;
+    }
+    #scratch-ticket-container, #lotto-ticket-container {
+      background: #252525;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px #000a;
+      padding: 30px 24px 24px 24px;
+      min-width: 340px;
+      min-height: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    #scratch-ticket-title, #lotto-ticket-title {
+      font-size: 1.8em;
+      font-family: Impact, 'Courier New', Courier, monospace;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+      color: #f8d34a;
+      text-shadow: 2px 2px 0 #444;
+    }
+    #scratch-close, #lotto-close {
+      position: absolute;
+      right: 18px;
+      top: 14px;
+      font-size: 1.4em;
+      color: #888;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
+    #scratch-canvas, #lotto-canvas {
+      background: #b2b2b2;
+      margin: 18px 0;
+      border-radius: 10px;
+      box-shadow: 0 1px 10px #0004;
+      touch-action: none;
+      border: 2px solid #f8d34a;
+      display: block;
+    }
+    #scratch-ticket-result, #lotto-scratch-result {
+      font-size: 1.3em;
+      color: #fff;
+      margin-top: 10px;
+      min-height: 34px;
+      text-align: center;
+    }
+    #scratch-ticket-prizes, #lotto-ticket-prizes {
+      color: #e9e9e9;
+      font-size: 1em;
+      margin-top: 5px;
+      margin-bottom: 5px;
+    }
+    #lotto-scratch-jackpot {
+      color: #f8d34a;
+      font-size: 1.3em;
+      margin: 5px 0 10px 0;
+    }
+    .stock-up { color: #7cff7c; }
+    .stock-down { color: #ff6e6e; }
+    .stock-same { color: #fff; }
+  </style>
+</head>
+<body>
+
+  <h1>🎰 Classic Arcade Gambling</h1>
+
+  <div id="menuBar">
+    <button onclick="showSection('home')">Home</button>
+    <button onclick="showSection('loanCenter')">Loan Center</button>
+    <button onclick="showSection('housingMarket')">Housing Market</button>
+    <button onclick="showSection('stockMarket')">Stock Market</button>
+  </div>
+
+  <div id="home" class="section" style="display:block;">
+    <div>
+      <label for="betAmount">Bet Amount: $</label>
+      <input type="number" id="betAmount" value="10" min="1" />
+    </div>
+    <div>
+      <button id="slotBtn" onclick="spin()">Spin Slot</button>
+      <button id="highCardBtn" onclick="drawCard()">High Card</button>
+      <button onclick="playScratchTicket()">🧾 Scratch Ticket ($20)</button>
+      <select id="lottoType" style="margin-left:10px;">
+        <option value="powerball">Powerball ($10)</option>
+        <option value="megamillions">Mega Millions ($20)</option>
+        <option value="luckyday">Lucky Day ($5)</option>
+      </select>
+      <button onclick="playLottoTicket()">🎟️ Play Lotto</button>
+    </div>
+    <div id="slot">🍒 🍋 🍊</div>
+    <div id="card-area">You: 🂠 | Dealer: 🂠</div>
+  </div>
+
+  <div id="loanCenter" class="section">
+    <div>
+      <label for="loanAmount">Loan Amount:</label>
+      <select id="loanAmount">
+        <option value="100">$100</option>
+        <option value="200">$200</option>
+        <option value="500">$500</option>
+      </select>
+      <button onclick="takeLoan()">💸 Take Loan</button>
+    </div>
+    <div id="loan-warning"></div>
+    <div id="loan-buttons"></div>
+    <h3>📋 Loan History</h3>
+    <table>
+      <thead><tr><th>Amount</th><th>Due</th><th>Time Left</th><th>Status</th></tr></thead>
+      <tbody id="loan-history"></tbody>
+    </table>
+  </div>
+
+  <div id="housingMarket" class="section">
+    <h2>🏠 Housing Market</h2>
+    <div id="housesForSale"></div>
+    <div>
+      <h3>Owned Properties</h3>
+      <ul id="ownedHousesList"></ul>
+    </div>
+  </div>
+
+  <div id="stockMarket" class="section">
+    <h2>📈 Stock Market</h2>
+    <div id="stockMarketBalance"></div>
+    <div id="stockMarketTableContainer" style="overflow-x:auto;">
+      <table id="stockMarketTable" style="margin:auto;width:98%;background:#181818;">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Company</th>
+            <th>Price</th>
+            <th>Change</th>
+            <th>Owned</th>
+            <th>Buy</th>
+            <th>Sell</th>
+          </tr>
+        </thead>
+        <tbody id="stockMarketBody"></tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Your Portfolio</h3>
+      <div id="stockPortfolio"></div>
+    </div>
+  </div>
+
+  <div id="result"></div>
+  <div id="balance">Balance: $100</div>
+  <div id="reputation">🏦 Reputation: 100</div>
+
+  <!-- SCRATCH TICKET MODAL -->
+  <div id="scratch-modal">
+    <div id="scratch-ticket-container">
+      <button id="scratch-close" onclick="closeScratchModal()">✖</button>
+      <div id="scratch-ticket-title">SCRATCH &amp; WIN</div>
+      <div id="scratch-ticket-prizes">
+        Match 3 to Win!<br>
+        <span style="color:#f8d34a;">Jackpot: $500</span> | $50 | $5 | Sorry!
+      </div>
+      <div style="position:relative;display:inline-block;">
+        <canvas id="scratch-canvas" width="320" height="120"></canvas>
+      </div>
+      <div id="scratch-ticket-result"></div>
+    </div>
+  </div>
+
+  <!-- LOTTO TICKET MODAL (Scratchable) -->
+  <div id="lotto-modal">
+    <div id="lotto-ticket-container">
+      <button id="lotto-close" onclick="closeLottoModal()">✖</button>
+      <div id="lotto-ticket-title">LOTTO SCRATCH TICKET</div>
+      <div id="lotto-scratch-jackpot"></div>
+      <div id="lotto-ticket-prizes"></div>
+      <canvas id="lotto-canvas" width="370" height="170"></canvas>
+      <div id="lotto-scratch-result"></div>
+    </div>
+  </div>
+
+  <script>
+    // Navigation
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
+      if (id === 'housingMarket') renderHousingMarket();
+      if (id === 'loanCenter') updateLoanButtons();
+      if (id === 'stockMarket') renderStockMarket();
+    }
+
+    // Shared State
+    let balance = 100;
+    let reputation = 100;
+    let activeLoans = [];
+    const loanHistory = [];
+    const ownedHouses = [];
+
+    // ----- SLOT MACHINE -----
+    let slotCooldown = false;
+    let slotAnimInterval = null;
+    let slotAnimFrames = 0;
+    const symbols = ['🍒', '🍋', '🍊', '🍉', '🍇', '💎'];
+
+    function spin() {
+      if (slotCooldown) return;
+      const bet = getBet();
+      if (bet > balance) return showMessage("💸 Not enough balance!");
+      if (bet <= 0) return showMessage("Enter a valid bet!");
+      balance -= bet;
+      slotCooldown = true;
+      const slotBtn = document.getElementById("slotBtn");
+      slotBtn.disabled = true;
+      slotBtn.textContent = "Slot Cooldown (5s)";
+      document.getElementById("slot").classList.add("slot-anim");
+      document.getElementById("card-area").textContent = "You: 🂠 | Dealer: 🂠";
+      slotAnimInterval = setInterval(() => {
+        document.getElementById("slot").textContent = [rand(symbols), rand(symbols), rand(symbols)].join(' ');
+      }, 80);
+      setTimeout(() => {
+        clearInterval(slotAnimInterval);
+        const [s1, s2, s3] = [rand(symbols), rand(symbols), rand(symbols)];
+        document.getElementById("slot").textContent = `${s1} ${s2} ${s3}`;
+        document.getElementById("slot").classList.remove("slot-anim");
+        if (Math.random() < 0.01) {
+          balance += bet * 1000;
+          showMessage(`💰 JACKPOT!!! You won $${(bet * 1000).toLocaleString()}`);
+        } else if (s1 === s2 && s2 === s3) {
+          balance += bet * 5;
+          showMessage(`🎉 Triple Match! You won $${bet * 5}`);
+        } else if (s1 === s2 || s2 === s3 || s1 === s3) {
+          balance += bet * 2;
+          showMessage(`👍 Matched 2! Won $${bet * 2}`);
+        } else {
+          showMessage("❌ You lost the spin.");
+        }
+        updateStats();
+        let cd = 3;
+        function updateBtn() {
+          slotBtn.textContent = `Slot Cooldown (${cd--}s)`;
+          if (cd >= 0) setTimeout(updateBtn, 1000);
+          else {
+            slotBtn.disabled = false;
+            slotBtn.textContent = "Spin Slot";
+            slotCooldown = false;
+          }
+        }
+        updateBtn();
+      }, 2000);
+    }
+
+    // ----- HIGH CARD -----
+    const cardValues = Array.from({length: 13}, (_, i) => i + 2);
+    const cardFaces = {11: 'J', 12: 'Q', 13: 'K', 14: 'A'};
+    let highCardCooldown = false;
+
+    function drawCard() {
+      if (highCardCooldown) return;
+      const bet = getBet();
+      if (bet > balance) return showMessage("💸 Not enough balance!");
+      if (bet <= 0) return showMessage("Enter a valid bet!");
+      balance -= bet;
+      const player = rand(cardValues);
+      const dealer = rand(cardValues);
+      const playerFace = cardFaces[player] || player;
+      const dealerFace = cardFaces[dealer] || dealer;
+      document.getElementById("slot").textContent = "🍒 🍋 🍊";
+      document.getElementById("card-area").textContent = `You: ${playerFace} | Dealer: ${dealerFace}`;
+      if (player > dealer) {
+        balance += bet * 2;
+        showMessage(`🎉 You win! (+$${bet * 2})`);
+      } else if (player === dealer) {
+        balance += bet;
+        showMessage("🤝 Tie. You get your money back.");
+      } else {
+        showMessage("❌ Dealer wins. You lost your bet.");
+      }
+      updateStats();
+      highCardCooldown = true;
+      const btn = document.getElementById("highCardBtn");
+      btn.disabled = true;
+      let cd = 3;
+      btn.textContent = `High Card Cooldown (${cd--}s)`;
+      function updateHighCardCooldown() {
+        if (cd >= 0) {
+          btn.textContent = `High Card Cooldown (${cd--}s)`;
+          setTimeout(updateHighCardCooldown, 1000);
+        } else {
+          btn.disabled = false;
+          btn.textContent = "High Card";
+          highCardCooldown = false;
+        }
+      }
+      updateHighCardCooldown();
+    }
+
+    // --------- SCRATCH TICKET ---------
+    function playScratchTicket() {
+      const cost = 20;
+      if (balance < cost) {
+        return showMessage("💸 Not enough money for a scratch ticket!");
+      }
+      balance -= cost;
+      updateStats();
+      showScratchModal();
+    }
+    function showScratchModal() {
+      document.getElementById("scratch-ticket-result").textContent = "";
+      document.getElementById("scratch-modal").style.display = "flex";
+      drawScratchTicket();
+      setupScratchCanvas();
+    }
+    function closeScratchModal() {
+      document.getElementById("scratch-modal").style.display = "none";
+    }
+    let scratchData = null;
+    function drawScratchTicket() {
+      const canvas = document.getElementById("scratch-canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const symbols = ["🍒","🍋","🍊","🍉","💎"];
+      const win = Math.random()<0.25;
+      scratchData = win ? [rand(symbols), rand(symbols), rand(symbols)].fill("💎") : [rand(symbols), rand(symbols), rand(symbols)];
+      ctx.font = "56px serif";
+      ctx.textAlign = "center";
+      for (let i = 0; i < 3; ++i) {
+        ctx.fillText(scratchData[i], 70 + 90*i, 80);
+      }
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#a6a6a6";
+      ctx.globalAlpha = 1;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    function setupScratchCanvas() {
+      const canvas = document.getElementById("scratch-canvas");
+      const ctx = canvas.getContext("2d");
+      function scratchLine(x, y) {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.beginPath();
+        ctx.arc(x, y, 22, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      }
+      function handleMove(e) {
+        if (e.buttons !== 1 && !e.touches) return;
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+        if (e.touches) {
+          x = e.touches[0].clientX - rect.left;
+          y = e.touches[0].clientY - rect.top;
+        } else {
+          x = e.offsetX;
+          y = e.offsetY;
+        }
+        scratchLine(x, y);
+      }
+      function handleUp(e) {
+        if (scratchData[0] === scratchData[1] && scratchData[1] === scratchData[2]) {
+          document.getElementById("scratch-ticket-result").innerHTML = "🎉 JACKPOT! You win $100";
+          balance += 100;
+        } else {
+          document.getElementById("scratch-ticket-result").innerHTML = "😢 Sorry, no win.";
+        }
+        updateStats();
+      }
+      canvas.onmousedown = handleMove;
+      canvas.onmousemove = handleMove;
+      canvas.onmouseup = handleUp;
+      canvas.ontouchstart = handleMove;
+      canvas.ontouchmove = handleMove;
+      canvas.ontouchend = handleUp;
+    }
+
+    // ---- LOTTO ----
+    const lottoTypes = {
+      powerball: { name: "Powerball", price: 10, jackpotRange: [123_000_000, 287_000_000], numberCount: 5, numberMax: 69, powerball: true, powerballMax: 26 },
+      megamillions: { name: "Mega Millions", price: 20, jackpotRange: [150_000_000, 270_000_000], numberCount: 5, numberMax: 70, powerball: true, powerballMax: 25 },
+      luckyday: { name: "Lucky Day", price: 5, jackpotRange: [5_000_000, 20_000_000], numberCount: 4, numberMax: 40, powerball: false, powerballMax: 0 }
+    };
+    let lottoScratchData = null;
+    function playLottoTicket() {
+      const lottoType = document.getElementById("lottoType").value;
+      const lotto = lottoTypes[lottoType];
+      if (balance < lotto.price) {
+        showMessage("💸 Not enough money for a lotto ticket!");
+        return;
+      }
+      balance -= lotto.price;
+      updateStats();
+      // Generate random jackpot
+      const jackpot = Math.floor(Math.random() * (lotto.jackpotRange[1] - lotto.jackpotRange[0] + 1)) + lotto.jackpotRange[0];
+      // Generate winning numbers
+      const numbers = Array.from({length: lotto.numberMax}, (_, i) => i + 1);
+      const winningNumbers = [];
+      let tmpNumbers = [...numbers];
+      for (let i = 0; i < lotto.numberCount; ++i) {
+        const idx = Math.floor(Math.random() * tmpNumbers.length);
+        winningNumbers.push(tmpNumbers[idx]);
+        tmpNumbers.splice(idx, 1);
+      }
+      winningNumbers.sort((a,b) => a-b);
+      let winningPower = lotto.powerball ? Math.floor(Math.random() * lotto.powerballMax) + 1 : null;
+      // Generate your ticket
+      tmpNumbers = [...numbers];
+      const yourNumbers = [];
+      for (let i = 0; i < lotto.numberCount; ++i) {
+        const idx = Math.floor(Math.random() * tmpNumbers.length);
+        yourNumbers.push(tmpNumbers[idx]);
+        tmpNumbers.splice(idx, 1);
+      }
+      yourNumbers.sort((a,b) => a-b);
+      let yourPower = lotto.powerball ? Math.floor(Math.random() * lotto.powerballMax) + 1 : null;
+      // Determine result
+      let matched = 0;
+      for (let n of yourNumbers) if (winningNumbers.includes(n)) matched++;
+      let powerMatch = (lotto.powerball && winningPower === yourPower);
+      let result = "";
+      let prize = 0;
+      if (matched === lotto.numberCount && (!lotto.powerball || powerMatch)) {
+        prize = jackpot;
+        result = `<span style="color:#f8d34a;font-size:1.4em;">🎉 JACKPOT! You won $${prize.toLocaleString()}!</span>`;
+      } else if (matched === lotto.numberCount) {
+        prize = Math.floor(jackpot / 100);
+        result = `<span style="color:#ffe680;">So close! All numbers, but missed Powerball. $${prize.toLocaleString()}</span>`;
+      } else if (matched >= Math.max(2,lotto.numberCount-2)) {
+        prize = [10000,2000,100][matched-lotto.numberCount+2]||10;
+        result = `<span style="color:#aaffc0;">You matched ${matched} numbers! You win $${prize.toLocaleString()}</span>`;
+      } else {
+        result = "<span style='color:#fbb;'>😢 Sorry, no win.</span>";
+      }
+      if (prize > 0) {
+        balance += prize;
+        showMessage(`🎟️ Lotto win: $${prize.toLocaleString()}`);
+      } else {
+        showMessage(`🎟️ No win. Try again!`);
+      }
+      updateStats();
+      lottoScratchData = {
+        lottoName: lotto.name,
+        jackpot,
+        winningNumbers,
+        winningPower,
+        yourNumbers,
+        yourPower,
+        resultHtml: result
+      };
+      document.getElementById("lotto-ticket-title").textContent = lotto.name + " SCRATCH TICKET";
+      document.getElementById("lotto-scratch-jackpot").innerHTML = `Jackpot: <b style="color:#f8d34a;">$${jackpot.toLocaleString()}</b>`;
+      document.getElementById("lotto-ticket-prizes").textContent = "Scratch to reveal your numbers and result!";
+      document.getElementById("lotto-scratch-result").innerHTML = "";
+      document.getElementById("lotto-modal").style.display = "flex";
+      drawLottoScratchTicket();
+      setupLottoScratchCanvas();
+    }
+    function closeLottoModal() {
+      document.getElementById("lotto-modal").style.display = "none";
+    }
+    function drawLottoScratchTicket() {
+      const canvas = document.getElementById("lotto-canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.font = "bold 20px Courier New, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#e7e7e7";
+      ctx.fillText("Winning Numbers:", canvas.width / 2, 10);
+      let nums = lottoScratchData.winningNumbers.join(" ");
+      if (lottoScratchData.winningPower != null)
+        nums += `  (${lottoScratchData.winningPower})`;
+      ctx.font = "bold 24px Courier New, monospace";
+      ctx.fillText(nums, canvas.width / 2, 35);
+      ctx.font = "bold 20px Courier New, monospace";
+      ctx.fillStyle = "#bfefff";
+      ctx.fillText("Your Numbers:", canvas.width / 2, 65);
+      let ynums = lottoScratchData.yourNumbers.join(" ");
+      if (lottoScratchData.yourPower != null)
+        ynums += `  (${lottoScratchData.yourPower})`;
+      ctx.font = "bold 24px Courier New, monospace";
+      ctx.fillText(ynums, canvas.width / 2, 90);
+      ctx.font = "bold 20px Courier New, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = "#ffffff";
+      let resultText = lottoScratchData.resultHtml.replace(/<[^>]+>/g, '');
+      ctx.fillText(resultText, canvas.width / 2, 130);
+      ctx.restore();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#a6a6a6";
+      ctx.globalAlpha = 1;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    function setupLottoScratchCanvas() {
+      const canvas = document.getElementById("lotto-canvas");
+      const ctx = canvas.getContext("2d");
+      function scratchLine(x, y) {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.beginPath();
+        ctx.arc(x, y, 22, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      }
+      function handleMove(e) {
+        if (e.buttons !== 1 && !e.touches) return;
+        const rect = canvas.getBoundingClientRect();
+        let x, y;
+        if (e.touches) {
+          x = e.touches[0].clientX - rect.left;
+          y = e.touches[0].clientY - rect.top;
+        } else {
+          x = e.offsetX;
+          y = e.offsetY;
+        }
+        scratchLine(x, y);
+      }
+      function handleUp(e) {
+        let nums = lottoScratchData.winningNumbers.join(" ");
+        if (lottoScratchData.winningPower != null)
+          nums += `  (<b>${lottoScratchData.winningPower}</b>)`;
+        let ynums = lottoScratchData.yourNumbers.join(" ");
+        if (lottoScratchData.yourPower != null)
+          ynums += `  (<b>${lottoScratchData.yourPower}</b>)`;
+        document.getElementById("lotto-scratch-result").innerHTML =
+          `<div style="color:#e7e7e7;font-size:1.1em;"><b>Winning Numbers:</b> ${nums}</div>
+           <div style="color:#bfefff;font-size:1.1em;"><b>Your Numbers:</b> ${ynums}</div>
+           <div style="margin-top:0.5em;">${lottoScratchData.resultHtml}</div>`;
+      }
+      canvas.onmousedown = handleMove;
+      canvas.onmousemove = handleMove;
+      canvas.onmouseup = handleUp;
+      canvas.ontouchstart = handleMove;
+      canvas.ontouchmove = handleMove;
+      canvas.ontouchend = handleUp;
+    }
+
+    // ----- LOAN CENTER -----
+    function takeLoan() {
+      if (activeLoans.length >= 2) return showMessage("❌ Max 2 active loans allowed!");
+      const base = parseInt(document.getElementById("loanAmount").value);
+      const loan = {
+        id: Date.now(),
+        base,
+        due: base * 1.1,
+        timeLeft: 50,
+        repaid: false,
+        interval: null
+      };
+      balance += base;
+      activeLoans.push(loan);
+      startLoanTimers(loan);
+      updateLoanButtons();
+      updateStats();
+      showMessage(`💵 Took $${base} loan. Repay in 50s.`);
+    }
+    function startLoanTimers(loan) {
+      loan.interval = setInterval(() => {
+        loan.timeLeft--;
+        updateLoanButtons();
+        if (loan.timeLeft === 0) {
+          clearInterval(loan.interval);
+          activeLoans = activeLoans.filter(l => l.id !== loan.id);
+          reputation -= 20;
+          loanHistory.push({...loan, status: "Defaulted"});
+          updateLoanButtons();
+          updateStats();
+        }
+      }, 1000);
+    }
+    function repayLoan(id) {
+      const loan = activeLoans.find(l => l.id === id);
+      if (!loan || loan.repaid) return;
+      if (balance < loan.due) return showMessage("💸 Not enough money to repay.");
+      balance -= loan.due;
+      clearInterval(loan.interval);
+      activeLoans = activeLoans.filter(l => l.id !== id);
+      reputation += 5;
+      loanHistory.push({...loan, status: "Repaid"});
+      showMessage(`✅ Repaid loan of $${loan.due.toFixed(2)}`);
+      updateLoanButtons();
+      updateStats();
+    }
+    function updateLoanButtons() {
+      const area = document.getElementById("loan-buttons");
+      const table = document.getElementById("loan-history");
+      area.innerHTML = activeLoans.map(loan =>
+        `<div>Loan: $${loan.base} → $${loan.due.toFixed(2)} | ⏳ ${loan.timeLeft}s
+        <button onclick="repayLoan(${loan.id})">Repay</button></div>`
+      ).join('');
+      table.innerHTML = loanHistory.map(l =>
+        `<tr><td>$${l.base}</td><td>$${l.due.toFixed(2)}</td><td>${l.timeLeft}s</td><td>${l.status}</td></tr>`
+      ).join('');
+    }
+
+    // ---- HOUSING MARKET ----
+    const housesForSale = [
+      { name: "Tiny Apartment", price: 10000 },
+      { name: "Suburban Home", price: 50000 },
+      { name: "Luxury Condo", price: 250000 },
+      { name: "Mansion", price: 2000000 },
+      { name: "Private Island", price: 100000000 }
+    ];
+    function renderHousingMarket() {
+      const area = document.getElementById("housesForSale");
+      area.innerHTML = housesForSale.map(h =>
+        `<div><strong>${h.name}</strong> - $${h.price.toLocaleString()}
+        <button onclick="buyHouse(${h.price}, '${h.name}')">Buy</button></div>`
+      ).join('');
+      updateOwnedHouses();
+    }
+    function buyHouse(price, name) {
+      if (balance < price) return showMessage("💸 Not enough to buy this property!");
+      balance -= price;
+      ownedHouses.push({ name, price });
+      updateOwnedHouses();
+      updateStats();
+      showMessage(`✅ Purchased ${name} for $${price.toLocaleString()}`);
+    }
+    function updateOwnedHouses() {
+      const list = document.getElementById("ownedHousesList");
+      list.innerHTML = ownedHouses.map(h => `<li>${h.name} - $${h.price.toLocaleString()}</li>`).join('');
+    }
+    setInterval(() => {
+      const totalValue = ownedHouses.reduce((sum, h) => sum + h.price, 0);
+      if (totalValue > 0) {
+        const rent = totalValue * 0.01;
+        balance += rent;
+        updateStats();
+      }
+    }, 5000);
+
+    // ---- STOCK MARKET ----
+    const STOCK_COMPANIES = [
+      ["AAPL", "Apple Inc."], ["MSFT", "Microsoft Corp."], ["GOOGL", "Alphabet Inc."], ["AMZN", "Amazon.com"], ["NVDA", "NVIDIA Corp."],
+      ["TSLA", "Tesla Inc."], ["META", "Meta Platforms"], ["BRK.B", "Berkshire Hathaway"], ["V", "Visa Inc."], ["UNH", "UnitedHealth Group"],
+      ["LLY", "Eli Lilly"], ["JPM", "JPMorgan Chase"], ["WMT", "Walmart Inc."], ["MA", "Mastercard Inc."], ["AVGO", "Broadcom Inc."],
+      ["PG", "Procter & Gamble"], ["XOM", "Exxon Mobil"], ["COST", "Costco"], ["HD", "Home Depot"], ["MRK", "Merck & Co."],
+      ["ABBV", "AbbVie Inc."], ["CVX", "Chevron Corp."], ["ADBE", "Adobe Inc."], ["PEP", "PepsiCo"], ["KO", "Coca-Cola"],
+      ["ORCL", "Oracle Corp."], ["BAC", "Bank of America"], ["CSCO", "Cisco Systems"], ["MCD", "McDonald's"], ["ACN", "Accenture"],
+      ["LIN", "Linde plc"], ["NKE", "Nike Inc."], ["ABT", "Abbott Labs"], ["VZ", "Verizon Comm."], ["TMO", "Thermo Fisher"],
+      ["TMUS", "T-Mobile US"], ["WFC", "Wells Fargo"], ["DHR", "Danaher Corp."], ["UPS", "United Parcel Service"], ["BMY", "Bristol-Myers Squibb"],
+      ["INTC", "Intel Corp."], ["TXN", "Texas Instruments"], ["AMGN", "Amgen Inc."], ["PM", "Philip Morris"], ["NEE", "NextEra Energy"],
+      ["UNP", "Union Pacific"], ["SPGI", "S&P Global"], ["RTX", "RTX Corp."], ["MS", "Morgan Stanley"], ["QCOM", "Qualcomm Inc."],
+      ["HON", "Honeywell"], ["LLY", "Eli Lilly"], ["LOW", "Lowe's"], ["CRM", "Salesforce"], ["IBM", "IBM Corp."], ["GS", "Goldman Sachs"],
+      ["CAT", "Caterpillar Inc."], ["BLK", "BlackRock"], ["GE", "General Electric"], ["PLD", "Prologis Inc."], ["T", "AT&T Inc."],
+      ["MDT", "Medtronic plc"], ["ISRG", "Intuitive Surgical"], ["ELV", "Elevance Health"], ["AXP", "American Express"], ["BKNG", "Booking Holdings"],
+      ["SCHW", "Charles Schwab"], ["CB", "Chubb Ltd."], ["MO", "Altria Group"], ["ZTS", "Zoetis Inc."], ["MMC", "Marsh & McLennan"],
+      ["GILD", "Gilead Sciences"], ["C", "Citigroup Inc."], ["ADP", "ADP Inc."], ["AMAT", "Applied Materials"], ["SYK", "Stryker Corp."],
+      ["MDLZ", "Mondelez Intl."], ["DE", "Deere & Co."], ["LRCX", "Lam Research"], ["DUK", "Duke Energy"], ["PNC", "PNC Financial"],
+      ["EOG", "EOG Resources"], ["TGT", "Target Corp."], ["FISV", "Fiserv Inc."], ["SO", "Southern Company"], ["PGR", "Progressive Corp."],
+      ["REGN", "Regeneron Pharma"], ["CL", "Colgate-Palmolive"], ["SHW", "Sherwin-Williams"], ["ITW", "Illinois Tool Works"],
+      ["USB", "U.S. Bancorp"], ["SBUX", "Starbucks Corp."], ["AON", "Aon plc"], ["GM", "General Motors"], ["FDX", "FedEx Corp."],
+      ["PSA", "Public Storage"], ["MCO", "Moody's Corp."], ["CSX", "CSX Corp."], ["BDX", "Becton Dickinson"], ["HUM", "Humana Inc."]
+    ];
+    let stocks = {};
+    let portfolio = {};
+    function initStockMarket() {
+      if (Object.keys(stocks).length === 0) {
+        for (const [ticker, name] of STOCK_COMPANIES) {
+          let base = Math.random()*900+20;
+          stocks[ticker] = {
+            name,
+            price: Math.round(base*100)/100,
+            prevPrice: null,
+            volatility: Math.random()*0.03 + 0.01
+          };
+          portfolio[ticker] = 0;
+        }
+      }
+    }
+    initStockMarket();
+    setInterval(()=>{
+      for (const ticker in stocks) {
+        let s = stocks[ticker];
+        s.prevPrice = s.price;
+        let drift = (Math.random()-0.5) * s.volatility * s.price * 2;
+        if (Math.random() < 0.01) drift += (Math.random()-0.5)*s.price*0.2;
+        s.price = Math.max(1, Math.round((s.price + drift)*100)/100);
+      }
+      if (document.getElementById("stockMarket").style.display !== "none") renderStockMarket();
+    }, 4000);
+    function renderStockMarket() {
+      updateStats();
+      document.getElementById("stockMarketBalance").innerHTML =
+        `<b>Cash:</b> $${balance.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+      let rows = "";
+      for (const [ticker, name] of STOCK_COMPANIES) {
+        let s = stocks[ticker];
+        let diff = s.prevPrice == null ? 0 : s.price - s.prevPrice;
+        let diffStr = diff === 0 ? `<span class="stock-same">0.00</span>` : (diff > 0 ? `<span class="stock-up">▲ +${diff.toFixed(2)}</span>` : `<span class="stock-down">▼ ${diff.toFixed(2)}</span>`);
+        let priceStr = `$${s.price.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+        let owned = portfolio[ticker] || 0;
+        rows += `<tr>
+          <td>${ticker}</td>
+          <td>${name}</td>
+          <td>${priceStr}</td>
+          <td>${diffStr}</td>
+          <td>${owned}</td>
+          <td><input type="number" min="1" max="999" value="1" id="buy_${ticker}" style="width:45px;" />
+              <button onclick="buyStock('${ticker}')">Buy</button></td>
+          <td><input type="number" min="1" max="999" value="1" id="sell_${ticker}" style="width:45px;" />
+              <button onclick="sellStock('${ticker}')">Sell</button></td>
+        </tr>`;
+      }
+      document.getElementById("stockMarketBody").innerHTML = rows;
+      let total = balance;
+      let portRows = "";
+      for (const [ticker, name] of STOCK_COMPANIES) {
+        let s = stocks[ticker];
+        let owned = portfolio[ticker] || 0;
+        if (owned > 0) {
+          let val = owned * s.price;
+          total += val;
+          portRows += `<div>${ticker} (${name}): <b>${owned}</b> = $${val.toLocaleString(undefined,{maximumFractionDigits:2})}</div>`;
+        }
+      }
+      if (!portRows) portRows = "<i>No holdings yet.</i>";
+      document.getElementById("stockPortfolio").innerHTML =
+        `<div><b>Total Net Worth:</b> $${total.toLocaleString(undefined,{maximumFractionDigits:2})}</div>` +
+        portRows;
+    }
+    function buyStock(ticker) {
+      let input = document.getElementById("buy_" + ticker);
+      let qty = parseInt(input.value);
+      if (!qty || qty < 1) return showMessage("Enter shares to buy.");
+      let s = stocks[ticker];
+      let cost = s.price * qty;
+      if (balance < cost) return showMessage("Not enough cash!");
+      balance -= cost;
+      portfolio[ticker] += qty;
+      showMessage(`Bought ${qty} ${ticker} at $${s.price.toLocaleString(undefined,{maximumFractionDigits:2})} each.`);
+      renderStockMarket();
+    }
+    function sellStock(ticker) {
+      let input = document.getElementById("sell_" + ticker);
+      let qty = parseInt(input.value);
+      if (!qty || qty < 1) return showMessage("Enter shares to sell.");
+      if (portfolio[ticker] < qty) return showMessage("Not enough shares!");
+      let s = stocks[ticker];
+      let value = s.price * qty;
+      portfolio[ticker] -= qty;
+      balance += value;
+      showMessage(`Sold ${qty} ${ticker} at $${s.price.toLocaleString(undefined,{maximumFractionDigits:2})} each.`);
+      renderStockMarket();
+    }
+
+    // -------- Helpers --------
+    function getBet() {
+      const bet = parseInt(document.getElementById("betAmount").value);
+      return isNaN(bet) || bet <= 0 ? 0 : bet;
+    }
+    function rand(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+    function showMessage(msg) {
+      document.getElementById("result").textContent = msg;
+    }
+    function updateStats() {
+      document.getElementById("balance").textContent = `Balance: $${balance.toFixed(2)}`;
+      document.getElementById("reputation").textContent = `🏦 Reputation: ${reputation}`;
+    }
+  </script>
+</body>
+</html>
